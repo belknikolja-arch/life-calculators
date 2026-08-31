@@ -20,6 +20,16 @@ h1{font-size:26px;margin:0 0 4px}
 .search-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .search{flex:1;min-width:220px;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--text);padding:10px 14px;font-size:14.5px;font-family:inherit}
 .search:focus{outline:none;border-color:var(--acc)}
+[data-theme="light"]{--bg:#eef1f8;--card:#ffffff;--card2:#f2f4fa;--line:#d8deec;--text:#1c2333;--muted:#5a6480;--acc:#4c5fe0;--acc2:#5f70ea;--good:#15803d;--warn:#a16207;--bad:#dc2626;--mid:#c2570c}
+[data-theme="light"] .badge{background:#e8ebff;color:#3c49b8;border-color:#c3cbf5}
+[data-theme="light"] .chip{background:#fff}
+[data-theme="light"] .chip.active{background:#e3e7ff;color:#1c2333}
+[data-theme="light"] .btn{background:#fff}
+[data-theme="light"] .btn:hover{background:#eef1ff}
+[data-theme="light"] .btn.primary{color:#fff}
+[data-theme="light"] .btn.primary:hover{color:#fff}
+[data-theme="light"] .res-err{background:#fdecec;border-color:#f0bcbc;color:#8a2c2c}
+.head-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .chip{background:var(--card2);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s}
 .chip:hover{color:var(--text)}
@@ -57,8 +67,13 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 </head>
 <body>
 <div class="wrap">
-  <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">25 в одном файле</span></h1>
-  <p class="sub">Деньги, дом, еда, математика и здоровье — все расчёты выполняются прямо в браузере. Ничего никуда не отправляется.</p>
+  <div class="head-row">
+    <div>
+      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.1 • 32 в одном файле</span></h1>
+      <p class="sub">Деньги, дом, еда, математика, здоровье и поездки — все расчёты выполняются прямо в браузере. Ничего никуда не отправляется.</p>
+    </div>
+    <button class="btn theme-btn" id="themeBtn" title="Тема (сохраняется в браузере)">☀️ Светлая</button>
+  </div>
 
   <div class="search-row">
     <input class="search" id="q" type="text" placeholder="🔍 Поиск: кредит, ИМТ, краска, даты, чаевые…">
@@ -68,7 +83,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 
   <div class="calcs" id="calcs"></div>
 
-  <footer>Калькуляторы на все случаи жизни • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM) и т.д. Результат — ориентир, не гарантия.</footer>
+  <footer>Калькуляторы на все случаи жизни v1.1 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
 </div>
 
 <script id="core">
@@ -238,6 +253,48 @@ function oneRm(weight,reps){
   if(!(weight>0&&reps>0)) return null;
   return {v:weight*(1+reps/30)};
 }
+/* ---------- v1.1: новые ---------- */
+function tipSplit(bill,pct,people){
+  if(!(bill>0)||(pct==null||pct<0)) return null;
+  const tip=bill*pct/100, total=bill+tip;
+  const n=people>1?people:1;
+  return {tip:tip,total:total,per:total/n,tipPer:tip/n};
+}
+function fuelCost(km,l100,price){
+  if(!(km>0&&l100>0)) return null;
+  const liters=km*l100/100;
+  return {liters:liters,cost:price!=null?liters*price:null};
+}
+function metCalories(weightKg,met,hours){
+  if(!(weightKg>0&&met>0&&hours>0)) return null;
+  return {kcal:met*weightKg*hours};
+}
+function dueDate(lmpStr){
+  const d=new Date(lmpStr+'T00:00:00');
+  if(isNaN(d)) return null;
+  const due=new Date(d); due.setDate(due.getDate()+280);
+  const y=due.getFullYear(), m=String(due.getMonth()+1).padStart(2,'0'), dd=String(due.getDate()).padStart(2,'0');
+  return {due:y+'-'+m+'-'+dd};
+}
+function tvDiag(inch,cm){
+  if(inch!=null&&inch>0) return {cm:inch*2.54,inch:inch};
+  if(cm!=null&&cm>0) return {cm:cm,inch:cm/2.54};
+  return null;
+}
+function unitPrice(price,amount){
+  if(!(price>0&&amount>0)) return null;
+  const per100=price/amount*100;
+  return {per100:per100,per1000:per100*10};
+}
+function wattsAmps(watts,volts){
+  const v=volts>0?volts:220;
+  if(!(watts>0)) return null;
+  const a=watts/v;
+  const breaks=[6,10,16,25,32,40,50,63,80,100];
+  let breaker=null;
+  for(const b of breaks) if(a<=b){ breaker=b; break; }
+  return {amps:a,watts:watts,volts:v,breaker:breaker};
+}
 /* ---------- форматирование ---------- */
 function fmtNum(n,maxFrac){
   if(maxFrac==null) maxFrac=2;
@@ -255,6 +312,23 @@ function fmtNum(n,maxFrac){
 <script>
 /* ================= UI ================= */
 const $=id=>document.getElementById(id);
+/* ---------- Тема ---------- */
+const THEME_KEY='lifeCalcTheme';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem(THEME_KEY,t);}catch(e){}
+  const b=$('themeBtn'); if(b) b.textContent=(t==='light'?'🌙 Тёмная':'☀️ Светлая');
+}
+(function(){
+  let t='dark';
+  try{ t=localStorage.getItem(THEME_KEY)||'dark'; }catch(e){}
+  applyTheme(t);
+})();
+/* ---------- Память вводов ---------- */
+const MEM_KEY='lifeCalcMemory';
+let mem={};
+try{ mem=JSON.parse(localStorage.getItem(MEM_KEY))||{}; }catch(e){}
+function saveMem(){ try{ localStorage.setItem(MEM_KEY,JSON.stringify(mem)); }catch(e){} }
 function num(v){
   if(v==null||v==='') return null;
   const n=Number(String(v).replace(/\s/g,'').replace(',','.'));
@@ -268,7 +342,8 @@ const CATS=[
   ['home','🏠 Дом',''],
   ['food','🍽️ Еда',''],
   ['math','📐 Математика',''],
-  ['health','❤️ Здоровье','']
+  ['health','❤️ Здоровье',''],
+  ['travel','🚗 Поездки','']
 ];
 
 const CALCS=[
@@ -562,6 +637,88 @@ const CALCS=[
   if(!r) return null;
   return [['Примерный 1ПМ',fmtNum(r.v,1)+' кг',1]];
  }}
+,{id:'tip',cat:'food',emoji:'🍽️',title:'Чаевые и делёж',kw:'чаевые ресторан счёт пополам делим',
+ inputs:[
+  {k:'b',l:'Счёт, ₽',ph:'3 500',def:3500},
+  {k:'p',l:'Чаевые, %',ph:'10',def:10},
+  {k:'n',l:'Человек делим (1 — без делёжа)',ph:'2',def:2}
+ ],
+ calc:v=>{
+  const r=tipSplit(num(v.b),num(v.p)==null?10:num(v.p),Math.round(num(v.n)||1));
+  if(!r) return null;
+  const rows=[['Итого с чаевыми',fmtR(r.total),1],['Чаевые',fmtR(r.tip)]];
+  if(r.per<r.total) rows.push(['С каждого человека',fmtR(r.per)]);
+  return rows;
+ }},
+{id:'fuel',cat:'travel',emoji:'⛽',title:'Топливо на поездку',kw:'бензин дизель расход литры маршрут',
+ inputs:[
+  {k:'km',l:'Километров',ph:'450',def:450},
+  {k:'l',l:'Расход, л/100 км',ph:'8',def:8},
+  {k:'p',l:'Цена, ₽/л',ph:'60',def:60}
+ ],
+ calc:v=>{
+  const r=fuelCost(num(v.km),num(v.l),num(v.p)==null?0:num(v.p));
+  if(!r) return null;
+  const rows=[['Нужно топлива',fmtNum(r.liters,1)+' л',1]];
+  if(r.cost!=null) rows.push(['Стоимость',fmtR(r.cost)]);
+  return rows;
+ }},
+{id:'metcal',cat:'health',emoji:'🏃',title:'Калории за активность',kw:'мет меты сожечь ходьба бег тренировка',
+ inputs:[
+  {k:'w',l:'Вес, кг',ph:'75',def:75},
+  {k:'m',l:'Активность',type:'select',opts:[['2.5','Ходьба 5 км/ч'],['4','Быстрая ходьба 6,5 км/ч'],['6','Бег 8 км/ч'],['7','Плавание'],['8','Велосипед 16 км/ч'],['10','Тяжёлая тренировка / уборка']],def:'2.5'},
+  {k:'h',l:'Часов',ph:'0.5',def:0.5}
+ ],
+ hint:'Ккал = MET × вес × время. MET — коэффициент метаболического эквивалента.',
+ calc:v=>{
+  const r=metCalories(num(v.w),num(v.m),num(v.h));
+  if(!r) return null;
+  return [['Сожжено',fmtNum(r.kcal,0)+' ккал',1]];
+ }},
+{id:'due',cat:'health',emoji:'🤰',title:'Роды: предполагаемая дата',kw:'беременность срок гестация последний день',
+ inputs:[
+  {k:'l',l:'Первый день последней менструации',type:'date',def:todayStr()}
+ ],
+ hint:'Формула Нагеле: +280 дней (40 недель от последней менструации). Это ориентир — точную дату даёт врач по УЗИ.',
+ calc:v=>{
+  const r=dueDate(v.l);
+  if(!r) return null;
+  const d=new Date(r.due+'T00:00:00');
+  return [['Ожидаемая дата',d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}),1],['Недель от менструации','40']];
+ }},
+{id:'tv',cat:'home',emoji:'📺',title:'Диагональ ТВ: дюймы ↔ см',kw:'телевизор диагональ размер дюйм',
+ inputs:[
+  {k:'i',l:'Дюймы (заполните одно из двух)',ph:'55',def:55},
+  {k:'c',l:'…или сантиметры',ph:'',def:''}
+ ],
+ calc:v=>{
+  const r=tvDiag(num(v.i),num(v.c));
+  if(!r) return null;
+  return [['Дюймов',fmtNum(r.inch,1),1],['Сантиметров',fmtNum(r.cm,1)+' см']];
+ }},
+{id:'unitprice',cat:'money',emoji:'🛒',title:'Цена за 100 г / кг',kw:'весовое сравнить магазин сырок упаковка',
+ inputs:[
+  {k:'p',l:'Цена упаковки, ₽',ph:'189',def:189},
+  {k:'g',l:'Вес, г',ph:'250',def:250}
+ ],
+ calc:v=>{
+  const r=unitPrice(num(v.p),num(v.g));
+  if(!r) return null;
+  return [['За 100 г',fmtR(r.per100),1],['За 1 кг',fmtR(r.per1000)]];
+ }},
+{id:'watts',cat:'home',emoji:'🔌',title:'Ватты ↔ амперы, автомат',kw:'розетка автомат пробки ток нагрузка',
+ inputs:[
+  {k:'w',l:'Мощность прибора, Вт',ph:'2000',def:2000},
+  {k:'v',l:'Напряжение, В (по умолчанию 220)',ph:'220',def:220}
+ ],
+ hint:'A = Вт/В. «Автомат» — ближайший стандартный номинал (6…100 А).',
+ calc:v=>{
+  const r=wattsAmps(num(v.w),num(v.v));
+  if(!r) return null;
+  const rows=[['Ток',fmtNum(r.amps,2)+' А',1]];
+  if(r.breaker) rows.push(['Ближайший автомат',r.breaker+' А']);
+  return rows;
+ }}
 ];
 
 /* ---------- генерация карточек ---------- */
@@ -591,6 +748,8 @@ function buildGeneric(c){
   }
   const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='Рассчитать';
   const res=document.createElement('div'); res.className='calc-res';
+  const saved=mem[c.id];
+  if(saved) form.querySelectorAll('[data-k]').forEach(el=>{ if(saved[el.dataset.k]!=null&&saved[el.dataset.k]!=='') el.value=saved[el.dataset.k]; });
   btn.onclick=()=>{
     const v={};
     form.querySelectorAll('[data-k]').forEach(el=>v[el.dataset.k]=el.value);
@@ -598,6 +757,7 @@ function buildGeneric(c){
     try{ rows=c.calc(v); }catch(e){ rows=null; }
     res.innerHTML='';
     if(!rows){ const d=document.createElement('div'); d.className='res-err'; d.textContent='Проверьте ввод — не хватает значений или они некорректны.'; res.appendChild(d); return; }
+    mem[c.id]=v; saveMem();
     for(const r of rows){
       const d=document.createElement('div'); d.className='res-row'+(r[2]?' big':'');
       const k=document.createElement('span'); k.className='res-k'; k.textContent=r[0];
@@ -706,6 +866,7 @@ for(const c of CALCS){
   card.id='calc-'+c.id;
   grid.appendChild(card);
 }
+$('themeBtn').onclick=()=>{ applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'); };
 applyFilter();
 </script>
 </body>
