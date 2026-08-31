@@ -69,7 +69,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 <div class="wrap">
   <div class="head-row">
     <div>
-      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.1 • 32 в одном файле</span></h1>
+      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.1.1 • 32 в одном файле</span></h1>
       <p class="sub">Деньги, дом, еда, математика, здоровье и поездки — все расчёты выполняются прямо в браузере. Ничего никуда не отправляется.</p>
     </div>
     <button class="btn theme-btn" id="themeBtn" title="Тема (сохраняется в браузере)">☀️ Светлая</button>
@@ -83,7 +83,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 
   <div class="calcs" id="calcs"></div>
 
-  <footer>Калькуляторы на все случаи жизни v1.1 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
+  <footer>Калькуляторы на все случаи жизни v1.1.1 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
 </div>
 
 <script id="core">
@@ -675,7 +675,7 @@ const CALCS=[
   if(!r) return null;
   return [['Сожжено',fmtNum(r.kcal,0)+' ккал',1]];
  }},
-{id:'due',cat:'health',emoji:'🤰',title:'Роды: предполагаемая дата',kw:'беременность срок гестация последний день',
+{id:'due',unavailable:true,cat:'health',emoji:'🤰',title:'Роды: предполагаемая дата',kw:'беременность срок гестация последний день',
  inputs:[
   {k:'l',l:'Первый день последней менструации',type:'date',def:todayStr()}
  ],
@@ -686,7 +686,7 @@ const CALCS=[
   const d=new Date(r.due+'T00:00:00');
   return [['Ожидаемая дата',d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}),1],['Недель от менструации','40']];
  }},
-{id:'tv',cat:'home',emoji:'📺',title:'Диагональ ТВ: дюймы ↔ см',kw:'телевизор диагональ размер дюйм',
+{id:'tv',unavailable:true,cat:'home',emoji:'📺',title:'Диагональ ТВ: дюймы ↔ см',kw:'телевизор диагональ размер дюйм',
  inputs:[
   {k:'i',l:'Дюймы (заполните одно из двух)',ph:'55',def:55},
   {k:'c',l:'…или сантиметры',ph:'',def:''}
@@ -706,7 +706,7 @@ const CALCS=[
   if(!r) return null;
   return [['За 100 г',fmtR(r.per100),1],['За 1 кг',fmtR(r.per1000)]];
  }},
-{id:'watts',cat:'home',emoji:'🔌',title:'Ватты ↔ амперы, автомат',kw:'розетка автомат пробки ток нагрузка',
+{id:'watts',unavailable:true,cat:'home',emoji:'🔌',title:'Ватты ↔ амперы, автомат',kw:'розетка автомат пробки ток нагрузка',
  inputs:[
   {k:'w',l:'Мощность прибора, Вт',ph:'2000',def:2000},
   {k:'v',l:'Напряжение, В (по умолчанию 220)',ph:'220',def:220}
@@ -727,6 +727,14 @@ function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.get
 function buildGeneric(c){
   const card=document.createElement('div'); card.className='calc-card';
   const h=document.createElement('h3'); h.textContent=c.emoji+' '+c.title; card.appendChild(h);
+  if(c.unavailable){
+    const b=document.createElement('span'); b.className='badge'; b.style.marginLeft='8px'; b.textContent='Временно недоступно';
+    h.appendChild(b);
+    const d=document.createElement('div'); d.className='calc-hint';
+    d.textContent='Калькулятор временно недоступен — дорабатывается и вернётся в следующем обновлении.';
+    card.appendChild(d);
+    return card;
+  }
   const form=document.createElement('div');
   for(const inp of c.inputs){
     const row=document.createElement('div'); row.className='ci';
