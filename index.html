@@ -69,7 +69,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 <div class="wrap">
   <div class="head-row">
     <div>
-      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.1.1 • 32 в одном файле</span></h1>
+      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.1.2 • 32 в одном файле</span></h1>
       <p class="sub">Деньги, дом, еда, математика, здоровье и поездки — все расчёты выполняются прямо в браузере. Ничего никуда не отправляется.</p>
     </div>
     <button class="btn theme-btn" id="themeBtn" title="Тема (сохраняется в браузере)">☀️ Светлая</button>
@@ -83,7 +83,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 
   <div class="calcs" id="calcs"></div>
 
-  <footer>Калькуляторы на все случаи жизни v1.1.1 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
+  <footer>Калькуляторы на все случаи жизни v1.1.2 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
 </div>
 
 <script id="core">
@@ -269,31 +269,50 @@ function metCalories(weightKg,met,hours){
   if(!(weightKg>0&&met>0&&hours>0)) return null;
   return {kcal:met*weightKg*hours};
 }
-function dueDate(lmpStr){
+function fmtISO(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dueDate(lmpStr,cycleLen){
   const d=new Date(lmpStr+'T00:00:00');
   if(isNaN(d)) return null;
-  const due=new Date(d); due.setDate(due.getDate()+280);
-  const y=due.getFullYear(), m=String(due.getMonth()+1).padStart(2,'0'), dd=String(due.getDate()).padStart(2,'0');
-  return {due:y+'-'+m+'-'+dd};
+  const base=new Date(d); base.setDate(base.getDate()+280);
+  const shift=(cycleLen>21&&cycleLen<40)?(cycleLen-28):0; // длиннее цикл — овуляция позже — роды позже
+  const due=new Date(base); due.setDate(due.getDate()+shift);
+  return {due:fmtISO(due),base:fmtISO(base),shift:shift,weeksTotal:40};
+}
+function pregnancyWeeks(lmpStr,nowStr){
+  const l=new Date(lmpStr+'T00:00:00');
+  const n=nowStr?new Date(nowStr+'T00:00:00'):new Date();
+  if(isNaN(l)) return null;
+  const days=Math.floor((n-l)/86400000);
+  if(days<0||days>420) return null;
+  const w=Math.floor(days/7), rem=days%7;
+  return {weeks:w,days:rem,label:w+' нед.'+(rem?' '+rem+' дн.':'')};
 }
 function tvDiag(inch,cm){
   if(inch!=null&&inch>0) return {cm:inch*2.54,inch:inch};
   if(cm!=null&&cm>0) return {cm:cm,inch:cm/2.54};
   return null;
 }
+function tvViewDist(diagInch){
+  if(!(diagInch>0)) return null;
+  return {minM:diagInch*1.5*2.54/100,maxM:diagInch*2.5*2.54/100};
+}
 function unitPrice(price,amount){
   if(!(price>0&&amount>0)) return null;
   const per100=price/amount*100;
   return {per100:per100,per1000:per100*10};
 }
-function wattsAmps(watts,volts){
+const CABLE_CU={6:'1 мм²',10:'1,5 мм²',16:'2,5 мм²',25:'4 мм²',32:'6 мм²',40:'10 мм²',50:'10 мм²',63:'16 мм²',80:'16 мм²',100:'25 мм²'};
+function wattsAmps(watts,volts,cosPhi){
   const v=volts>0?volts:220;
+  const cp=(cosPhi==null||cosPhi<=0)?1:Math.min(cosPhi,1);
   if(!(watts>0)) return null;
-  const a=watts/v;
+  const a=watts/(v*cp);
   const breaks=[6,10,16,25,32,40,50,63,80,100];
   let breaker=null;
   for(const b of breaks) if(a<=b){ breaker=b; break; }
-  return {amps:a,watts:watts,volts:v,breaker:breaker};
+  return {amps:a,watts:watts,volts:v,cosPhi:cp,breaker:breaker,cable:breaker?CABLE_CU[breaker]:null};
 }
 /* ---------- форматирование ---------- */
 function fmtNum(n,maxFrac){
@@ -677,15 +696,25 @@ const CALCS=[
  }},
 {id:'due',unavailable:true,cat:'health',emoji:'🤰',title:'Роды: предполагаемая дата',kw:'беременность срок гестация последний день',
  inputs:[
-  {k:'l',l:'Первый день последней менструации',type:'date',def:todayStr()}
+  {k:'l',l:'Первый день последней менструации',type:'date',def:todayStr()},
+  {k:'c',l:'Длина цикла, дней (опционально, по умолчанию 28)',ph:'28',def:''}
  ],
- hint:'Формула Нагеле: +280 дней (40 недель от последней менструации). Это ориентир — точную дату даёт врач по УЗИ.',
+ hint:'Формула Нагеле: +280 дней (40 недель от последней менструации). При цикле ≠28 дней дата сдвигается. Это ориентир — точную дату даёт врач по УЗИ.',
  calc:v=>{
-  const r=dueDate(v.l);
+  const r=dueDate(v.l,num(v.c));
   if(!r) return null;
+  const rows=[];
   const d=new Date(r.due+'T00:00:00');
-  return [['Ожидаемая дата',d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}),1],['Недель от менструации','40']];
+  rows.push(['Ожидаемая дата',d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}),1]);
+  if(r.shift!==0) rows.push(['Нагеле (цикл 28 дн)',new Date(r.base+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}),'сдвиг '+(r.shift>0?'+':'')+r.shift+' дн.']);
+  const pw=pregnancyWeeks(v.l);
+  if(pw) rows.push(['Срок сейчас',pw.label,1]);
+  const today=new Date(); today.setHours(0,0,0,0);
+  const left=Math.round((d-today)/86400000);
+  rows.push(left>0?['До предполагаемой даты',left+' дн.']:(left===0?['Сегодня','предполагаемая дата 🎉']:['Срок перешагнут','на '+(-left)+' дн.']));
+  return rows;
  }},
+
 {id:'tv',unavailable:true,cat:'home',emoji:'📺',title:'Диагональ ТВ: дюймы ↔ см',kw:'телевизор диагональ размер дюйм',
  inputs:[
   {k:'i',l:'Дюймы (заполните одно из двух)',ph:'55',def:55},
@@ -694,8 +723,12 @@ const CALCS=[
  calc:v=>{
   const r=tvDiag(num(v.i),num(v.c));
   if(!r) return null;
-  return [['Дюймов',fmtNum(r.inch,1),1],['Сантиметров',fmtNum(r.cm,1)+' см']];
+  const rows=[['Дюймов',fmtNum(r.inch,1),1],['Сантиметров',fmtNum(r.cm,1)+' см']];
+  const vd=tvViewDist(r.inch);
+  if(vd) rows.push(['Дистанция просмотра (HD)',fmtNum(vd.minM,1)+' – '+fmtNum(vd.maxM,1)+' м']);
+  return rows;
  }},
+
 {id:'unitprice',cat:'money',emoji:'🛒',title:'Цена за 100 г / кг',kw:'весовое сравнить магазин сырок упаковка',
  inputs:[
   {k:'p',l:'Цена упаковки, ₽',ph:'189',def:189},
@@ -709,17 +742,20 @@ const CALCS=[
 {id:'watts',unavailable:true,cat:'home',emoji:'🔌',title:'Ватты ↔ амперы, автомат',kw:'розетка автомат пробки ток нагрузка',
  inputs:[
   {k:'w',l:'Мощность прибора, Вт',ph:'2000',def:2000},
-  {k:'v',l:'Напряжение, В (по умолчанию 220)',ph:'220',def:220}
+  {k:'v',l:'Напряжение, В (по умолчанию 220)',ph:'220',def:220},
+  {k:'cp',l:'cos φ (только для двигателей/инверторов, по умолчанию 1)',ph:'1',def:''}
  ],
- hint:'A = Вт/В. «Автомат» — ближайший стандартный номинал (6…100 А).',
+ hint:'A = Вт/(В × cos φ). «Автомат» — ближайший стандартный номинал (6…100 А), «Кабель» — примерное сечение меди для скрытой проводки. Для точного подбора — электрик.',
  calc:v=>{
-  const r=wattsAmps(num(v.w),num(v.v));
+  const r=wattsAmps(num(v.w),num(v.v),num(v.cp));
   if(!r) return null;
   const rows=[['Ток',fmtNum(r.amps,2)+' А',1]];
   if(r.breaker) rows.push(['Ближайший автомат',r.breaker+' А']);
+  if(r.cable) rows.push(['Кабель (медь, скрытая прокладка)',r.cable]);
   return rows;
  }}
 ];
+
 
 /* ---------- генерация карточек ---------- */
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
