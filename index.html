@@ -69,7 +69,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 <div class="wrap">
   <div class="head-row">
     <div>
-      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.1.2 • 32 в одном файле</span></h1>
+      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.2 • 32 в одном файле</span></h1>
       <p class="sub">Деньги, дом, еда, математика, здоровье и поездки — все расчёты выполняются прямо в браузере. Ничего никуда не отправляется.</p>
     </div>
     <button class="btn theme-btn" id="themeBtn" title="Тема (сохраняется в браузере)">☀️ Светлая</button>
@@ -83,7 +83,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 
   <div class="calcs" id="calcs"></div>
 
-  <footer>Калькуляторы на все случаи жизни v1.1.2 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
+  <footer>Калькуляторы на все случаи жизни v1.2 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
 </div>
 
 <script id="core">
@@ -225,7 +225,10 @@ function dateDiff(a,b){
   const d1=new Date(a+'T00:00:00'), d2=new Date(b+'T00:00:00');
   if(isNaN(d1)||isNaN(d2)) return null;
   const days=Math.round(Math.abs(d2-d1)/86400000);
-  return {days:days,weeks:days/7,months:days/30.44,years:days/365.25,hours:days*24};
+  const lo=Math.min(d1.getTime(),d2.getTime()), hi=Math.max(d1.getTime(),d2.getTime());
+  let workdays=0;
+  for(let t=lo;t<=hi;t+=86400000){ const wd=new Date(t).getDay(); if(wd!==0&&wd!==6) workdays++; }
+  return {days:days,weeks:days/7,months:days/30.44,years:days/365.25,hours:days*24,workdays:workdays};
 }
 /* ---------- здоровье ---------- */
 function bmiOf(hCm,wKg){
@@ -377,7 +380,7 @@ const CALCS=[
  calc:v=>{
   const r=annuity(num(v.p),num(v.r),Math.round(num(v.m)||0));
   if(!r) return null;
-  return [['Ежемесячный платёж',fmtR(r.pmt),1],['Всего выплатите',fmtR(r.total)],['Переплата (проценты)',fmtR(r.interest)]];
+  return [['Ежемесячный платёж',fmtR(r.pmt),1],['Всего выплатите',fmtR(r.total)],['Переплата (проценты)',fmtR(r.interest)],['Переплата, % от суммы',fmtNum(r.interest/num(v.p)*100,1)+' %']];
  }},
 {id:'deposit',cat:'money',emoji:'🏛️',title:'Депозит',kw:'вклад процент капиталация накопления',
  inputs:[
@@ -390,7 +393,8 @@ const CALCS=[
  calc:v=>{
   const r=depositFV(num(v.p)||0,num(v.r),Math.round(num(v.m)||0),num(v.add)||0);
   if(!r) return null;
-  return [['Будет на счёте',fmtR(r.end),1],['Из них ваши вложения',fmtR(r.contrib)],['Проценты',fmtR(r.interest)]];
+  const mm=num(v.m)||1;
+  return [['Будет на счёте',fmtR(r.end),1],['Из них ваши вложения',fmtR(r.contrib)],['Проценты',fmtR(r.interest)],['Прибыль в месяц',fmtR(r.interest/mm)],['Прибыль, % от вложений',fmtNum(r.interest/(r.contrib||1)*100,1)+' %']];
  }},
 {id:'vat1',cat:'money',emoji:'🧾',title:'НДС: выделить из цены',kw:'налог добавленная стоимость 20 извлечь',
  inputs:[
@@ -400,7 +404,7 @@ const CALCS=[
  calc:v=>{
   const r=vatExtract(num(v.a),num(v.r)==null?20:num(v.r));
   if(!r) return null;
-  return [['Цена без НДС',fmtR(r.base),1],['НДС',fmtR(r.vat)]];
+  return [['Цена без НДС',fmtR(r.base),1],['НДС',fmtR(r.vat)],['НДС, % от базы',fmtNum(r.vat/(r.base||1)*100,1)+' %']];
  }},
 {id:'vat2',cat:'money',emoji:'➕',title:'НДС: наложить сверху',kw:'считать цену с налогом наценка',
  inputs:[
@@ -410,7 +414,7 @@ const CALCS=[
  calc:v=>{
   const r=vatAdd(num(v.a)||0,num(v.r)==null?20:num(v.r));
   if(!r) return null;
-  return [['Цена с НДС',fmtR(r.total),1],['НДС',fmtR(r.vat)]];
+  return [['Цена с НДС',fmtR(r.total),1],['НДС',fmtR(r.vat)],['Без НДС',fmtR(r.total-r.vat)]];
  }},
 {id:'tax',cat:'money',emoji:'💼',title:'НДФЛ: brutto/netto',kw:'налог зарплата на руки отчёт',
  inputs:[
@@ -422,7 +426,7 @@ const CALCS=[
  calc:v=>{
   const r=taxCalc(num(v.g)||0,num(v.n)||0,num(v.r)==null?13:num(v.r));
   if(!r) return null;
-  return [['Brutto (до вычета)',fmtR(r.gross),1],['НДФЛ',fmtR(r.tax)],['Netto (на руки)',fmtR(r.net)]];
+  return [['Brutto (до вычета)',fmtR(r.gross),1],['НДФЛ',fmtR(r.tax)],['Netto (на руки)',fmtR(r.net)],['На руки — % от brutto',fmtNum(r.net/(r.gross||1)*100,1)+' %']];
  }},
 {id:'percent',cat:'money',emoji:'➗',title:'Проценты',kw:'процент от числа сколько составляет скидка наценка',
  inputs:[
@@ -434,7 +438,11 @@ const CALCS=[
  calc:v=>{
   const x=num(v.x),p=num(v.p),a=num(v.a),b=num(v.b);
   const rows=[];
-  if(x!=null&&p!=null) rows.push([p+'% от '+fmtNum(x),fmtNum(pctOf(x,p))+' (='+fmtNum(pctOf(x,p))+' от '+fmtNum(x)+')',1]);
+  if(x!=null&&p!=null){
+    rows.push([p+'% от '+fmtNum(x),fmtNum(pctOf(x,p)),1]);
+    rows.push(['Добавить '+p+'%: '+fmtNum(x)+' →',fmtNum(x+pctOf(x,p))]);
+    rows.push(['Отнять '+p+'%: '+fmtNum(x)+' →',fmtNum(x-pctOf(x,p))]);
+  }
   if(a!=null&&b!=null&&b!==0) rows.push(['Число А — это % от Б',fmtNum(pctOfBase(a,b))+' %']);
   if(!rows.length) return null;
   return rows;
@@ -447,7 +455,7 @@ const CALCS=[
  calc:v=>{
   const r=discount(num(v.p),num(v.d)==null?0:num(v.d));
   if(!r) return null;
-  return [['Итоговая цена',fmtR(r.final),1],['Выгода',fmtR(r.saved)]];
+  return [['Итоговая цена',fmtR(r.final),1],['Выгода',fmtR(r.saved)],['Это % от исходной цены',fmtNum(r.final/(r.price||1)*100,1)+' %']];
  }},
 {id:'salary',cat:'money',emoji:'⏱️',title:'Зарплата во времени',kw:'час день смена ставка почасово',
  inputs:[
@@ -458,7 +466,7 @@ const CALCS=[
  calc:v=>{
   const r=salaryBreakdown(num(v.m),num(v.w));
   if(!r) return null;
-  return [['В час',fmtR(r.hourly),1],['За день (8 ч)',fmtR(r.day8)],['За неделю',fmtR(r.week)],['В год',fmtR(r.year)]];
+  return [['В час',fmtR(r.hourly),1],['За день (8 ч)',fmtR(r.day8)],['За неделю',fmtR(r.week)],['Оvertime (час по 1,5×)',fmtR(r.hourly*1.5)],['В год',fmtR(r.year)]];
  }},
 {id:'inflation',cat:'money',emoji:'📉',title:'Инфляция: сила денег',kw:'обесценивание рублей цены годы',
  inputs:[
@@ -469,26 +477,33 @@ const CALCS=[
  calc:v=>{
   const r=inflationPower(num(v.a)||0,num(v.r)||0,num(v.y)||0);
   if(!r) return null;
-  return [['Такая же покупательная способность будет',fmtR(r.value),1],['Потеряно',fmtR(r.lost)]];
+  const rows=[['Такая же покупательная способность будет',fmtR(r.value),1],['Потеряно',fmtR(r.lost)]];
+  if(r.value>0) rows.push(['Деньги станут слабее в',fmtNum(num(v.a)/r.value,2)+' раза']);
+  return rows;
  }},
 /* ---------- ДОМ ---------- */
 {id:'room',cat:'home',emoji:'📏',title:'Комната: площадь и стены',kw:'ремонт метры квадратная стены потолки',
  inputs:[
   {k:'l',l:'Длина, м',ph:'4',def:4},
   {k:'w',l:'Ширина, м',ph:'3',def:3},
-  {k:'h',l:'Высота потолка, м',ph:'2.7',def:2.7}
+  {k:'h',l:'Высота потолка, м',ph:'2.7',def:2.7},
+  {k:'o',l:'Двери и окна, м² (опционально)',ph:'4',def:''}
  ],
  calc:v=>{
   const r=roomGeom(num(v.l),num(v.w),num(v.h)||0);
   if(!r) return null;
-  return [['Площадь пола',fmtNum(r.area,2)+' м²',1],['Периметр',fmtNum(r.per,2)+' м'],['Площадь стен',fmtNum(r.walls,2)+' м²'],['Потолок',fmtNum(r.ceil,2)+' м²']];
+  const rows=[['Площадь пола',fmtNum(r.area,2)+' м²',1],['Периметр',fmtNum(r.per,2)+' м'],['Площадь стен',fmtNum(r.walls,2)+' м²'],['Потолок',fmtNum(r.ceil,2)+' м²']];
+  const o=num(v.o);
+  if(o>0) rows.push(['Стены за вычетом проёмов',fmtNum(Math.max(0,r.walls-o),2)+' м²']);
+  return rows;
  }},
 {id:'paint',cat:'home',emoji:'🎨',title:'Краска / шпаклёвка',kw:'краска банки литраж укрывистость слои',
  inputs:[
   {k:'a',l:'Площадь, м²',ph:'60',def:60},
   {k:'c',l:'Расход: м² на литр',ph:'10',def:10},
   {k:'n',l:'Слоёв',ph:'2',def:2},
-  {k:'can',l:'Объём банки, л (0 — без)',ph:'2.5',def:2.5}
+  {k:'can',l:'Объём банки, л (0 — без)',ph:'2.5',def:2.5},
+  {k:'pr',l:'Цена, ₽/л (опционально)',ph:'',def:''}
  ],
  hint:'Возьмите с запасом ~10%: стены «пьют» по-разному.',
  calc:v=>{
@@ -496,19 +511,24 @@ const CALCS=[
   if(!r) return null;
   const rows=[['Нужно краски',fmtNum(r.liters,2)+' л',1]];
   if(r.cans!=null) rows.push(['Банок по '+fmtNum(r.can||0,1)+' л',r.cans]);
+  const pr=num(v.pr);
+  if(pr>0) rows.push(['Стоимость ≈',fmtR(r.liters*pr)]);
   return rows;
  }},
 {id:'floor',cat:'home',emoji:'🪵',title:'Ламинат / плитка / линолеум',kw:'напольное покрытие запас упаковка подрезка',
  inputs:[
   {k:'a',l:'Площадь пола, м²',ph:'20',def:20},
   {k:'l',l:'Запас на подрезку, %',ph:'8',def:8},
-  {k:'p',l:'м² в упаковке (0 — без)',ph:'2',def:2}
+  {k:'p',l:'м² в упаковке (0 — без)',ph:'2',def:2},
+  {k:'pr',l:'Цена, ₽/м² (опционально)',ph:'',def:''}
  ],
  calc:v=>{
   const r=flooringNeeded(num(v.a),num(v.l)||0,num(v.p)||0);
   if(!r) return null;
   const rows=[['Купить с запасом',fmtNum(r.need,2)+' м²',1]];
   if(r.packs!=null) rows.push(['Упаковок',r.packs]);
+  const pr=num(v.pr);
+  if(pr>0) rows.push(['Стоимость ≈',fmtR(r.need*pr)]);
   return rows;
  }},
 {id:'watt',cat:'home',emoji:'⚡',title:'Электричество: сколько стоит прибор',kw:'ватт киловатты чиллер утюг чайник расход света',
@@ -521,7 +541,7 @@ const CALCS=[
  calc:v=>{
   const r=applianceCost(num(v.w),num(v.h)||0,num(v.d)||0,num(v.r)||0);
   if(!r) return null;
-  return [['Расход',fmtNum(r.kwh,2)+' кВт·ч',1],['Стоимость',fmtR(r.cost)]];
+  return [['Расход',fmtNum(r.kwh,2)+' кВт·ч',1],['Стоимость',fmtR(r.cost)],['За год (×12)',fmtR(r.cost*12)]];
  }},
 /* ---------- ЕДА ---------- */
 {id:'recipe',cat:'food',emoji:'🧑‍🍳',title:'Рецепт: пересчёт порций',kw:'порции масштабировать блюдо ингредиент',custom:true},
@@ -536,7 +556,7 @@ const CALCS=[
  calc:v=>{
   const r=servingNutrition({kcal:num(v.k)||0,p:num(v.p)||0,f:num(v.f)||0,c:num(v.c)||0},num(v.g));
   if(!r) return null;
-  return [['В порции',fmtNum(r.kcal,1)+' ккал',1],['Белки',fmtNum(r.p,1)+' г'],['Жиры',fmtNum(r.f,1)+' г'],['Углеводы',fmtNum(r.c,1)+' г']];
+  return [['В порции',fmtNum(r.kcal,1)+' ккал',1],['Белки',fmtNum(r.p,1)+' г'],['Жиры',fmtNum(r.f,1)+' г'],['Углеводы',fmtNum(r.c,1)+' г'],['% от дневных 2000 ккал',fmtNum(r.kcal/2000*100,0)+' %']];
  }},
 {id:'cups',cat:'food',emoji:'🥣',title:'Стаканы ↔ граммы (выпечка)',kw:'чашки стаканы мука сахар выпечка конвертер',
  inputs:[
@@ -547,9 +567,11 @@ const CALCS=[
  calc:v=>{
   const r=cupsConvert(v.prod,num(v.cups),num(v.grams));
   if(!r) return null;
+  const per=CUPS[v.prod]?CUPS[v.prod].g:null;
+  const extra=per?[['1 стакан =',fmtNum(per,0)+' г']]:[];
   return r.dir==='cups->g'
-    ? [['В граммах',fmtNum(r.g,1)+' г',1],['Стаканов',fmtNum(r.cups,2)]]
-    : [['В стаканах',fmtNum(r.cups,2)+' стак.',1],['Граммов',fmtNum(r.g,1)+' г']];
+    ? [['В граммах',fmtNum(r.g,1)+' г',1],['Стаканов',fmtNum(r.cups,2)].concat(extra)]
+    : [['В стаканах',fmtNum(r.cups,2)+' стак.',1],['Граммов',fmtNum(r.g,1)+' г'].concat(extra)];
  }},
 /* ---------- МАТЕМАТИКА ---------- */
 {id:'shapes',cat:'math',emoji:'📐',title:'Площади и объёмы',kw:'круг прямоугольник треугольник цилиндр сфера',
@@ -561,7 +583,13 @@ const CALCS=[
  calc:v=>{
   const r=shapeCalc(v.k,num(v.a),num(v.b));
   if(!r) return null;
-  return [[r.name,fmtNum(r.value,3)+' '+r.unit,1]];
+  const a=num(v.a),b=num(v.b);
+  const rows=[[r.name,fmtNum(r.value,3)+' '+r.unit,1]];
+  if(v.k==='circleR') rows.push(['Длина окружности (2πr)',fmtNum(2*Math.PI*a,3)]);
+  if(v.k==='circleD') rows.push(['Длина окружности (πd)',fmtNum(Math.PI*a,3)]);
+  if(v.k==='rect') rows.push(['Периметр (2(a+b))',fmtNum(2*(a+b),3)]);
+  if(v.k==='cyl'&&b>0) rows.push(['Боковая площадь (2πrh)',fmtNum(2*Math.PI*a*b,3)]);
+  return rows;
  }},
 {id:'avg',cat:'math',emoji:'🧮',title:'Среднее из списка чисел',kw:'медиана сумма минимум максимум статистика',
  inputs:[
@@ -570,7 +598,7 @@ const CALCS=[
  calc:v=>{
   const s=statsOf(parseNumbers(v.list));
   if(!s) return null;
-  return [['Чисел',s.n],['Сумма',fmtNum(s.sum,2)],['Среднее',fmtNum(s.mean,2),1],['Медиана',fmtNum(s.median,2)],['Минимум',fmtNum(s.min,2)],['Максимум',fmtNum(s.max,2)]];
+  return [['Чисел',s.n],['Сумма',fmtNum(s.sum,2)],['Среднее',fmtNum(s.mean,2),1],['Медиана',fmtNum(s.median,2)],['Минимум',fmtNum(s.min,2)],['Максимум',fmtNum(s.max,2)],['Размах (max − min)',fmtNum(s.max-s.min,2)]];
  }},
 {id:'vts',cat:'math',emoji:'🚗',title:'Скорость · время · путь',kw:'расстояние часы км в час маршрут',
  inputs:[
@@ -583,8 +611,8 @@ const CALCS=[
   const r=vts(num(v.s),num(v.t),num(v.d));
   if(!r) return null;
   if(r.dist!=null) return [['Путь',fmtNum(r.dist,2)+' км',1]];
-  if(r.time!=null) return [['Время',fmtNum(r.time,2)+' ч',1]];
-  return [['Скорость',fmtNum(r.speed,2)+' км/ч',1]];
+  if(r.time!=null) return [['Время',fmtNum(r.time,2)+' ч',1],['Минут',fmtNum(r.time*60,0)]];
+  return [['Скорость',fmtNum(r.speed,2)+' км/ч',1],['В м/с',fmtNum(r.speed/3.6,2)]];
  }},
 {id:'dates',cat:'math',emoji:'📅',title:'Между датами',kw:'дней сколько разницы дата возраст',
  inputs:[
@@ -594,7 +622,7 @@ const CALCS=[
  calc:v=>{
   const r=dateDiff(v.a,v.b);
   if(!r) return null;
-  return [['Дней',r.days,1],['Часов',fmtNum(r.hours,0)],['Недель',fmtNum(r.weeks,1)],['≈ месяцев',fmtNum(r.months,1)],['≈ лет',fmtNum(r.years,2)]];
+  return [['Дней',r.days,1],['Часов',fmtNum(r.hours,0)],['Недель',fmtNum(r.weeks,1)],['≈ месяцев',fmtNum(r.months,1)],['≈ лет',fmtNum(r.years,2)],['Будних дней (пн–пт, с датами)',r.workdays]];
  }},
 /* ---------- ЗДОРОВЬЕ ---------- */
 {id:'bmi',cat:'health',emoji:'⚖️',title:'ИМТ (индекс массы тела)',kw:'имт вес рост категория воз',
@@ -606,7 +634,8 @@ const CALCS=[
  calc:v=>{
   const r=bmiOf(num(v.h),num(v.w));
   if(!r) return null;
-  return [['ИМТ',fmtNum(r.v,1),1],['Категория (ВОЗ)',r.cat]];
+  const h=num(v.h)/100;
+  return [['ИМТ',fmtNum(r.v,1),1],['Категория (ВОЗ)',r.cat],['Вес при ИМТ 18.5–24.9',fmtNum(18.5*h*h,1)+' – '+fmtNum(24.9*h*h,1)+' кг']];
  }},
 {id:'tdee',cat:'health',emoji:'🔥',title:'Калории в день',kw:'тdee bmr метаболизм похудеть набрать миффлин',
  inputs:[
@@ -620,7 +649,7 @@ const CALCS=[
  calc:v=>{
   const r=tdee(v.sex,num(v.age),num(v.h),num(v.w),num(v.act));
   if(!r) return null;
-  return [['Обмен веществ (BMR)',fmtNum(r.bmr,0)+' ккал'],['Норма (TDEE)',fmtNum(r.tdee,0)+' ккал',1],['Похудение (−20%)',fmtNum(r.cut,0)+' ккал'],['Набор (+10%)',fmtNum(r.gain,0)+' ккал']];
+  return [['Обмен веществ (BMR)',fmtNum(r.bmr,0)+' ккал'],['Норма (TDEE)',fmtNum(r.tdee,0)+' ккал',1],['Похудение (−20%)',fmtNum(r.cut,0)+' ккал'],['Набор (+10%)',fmtNum(r.gain,0)+' ккал'],['Белок, ориентир (1,6 г/кг)',fmtNum((num(v.w)||0)*1.6,0)+' г/день']];
  }},
 {id:'macros',cat:'health',emoji:'🥩',title:'БЖУ из калорий',kw:'белки жиры углеводы граммы соотношение',
  inputs:[
@@ -633,7 +662,7 @@ const CALCS=[
  calc:v=>{
   const r=macros(num(v.k),num(v.p)||0,num(v.f)||0,num(v.c)||0);
   if(!r) return null;
-  return [['Белки',fmtNum(r.p,1)+' г',1],['Жиры',fmtNum(r.f,1)+' г'],['Углеводы',fmtNum(r.c,1)+' г']];
+  return [['Белки',fmtNum(r.p,1)+' г',1],['Жиры',fmtNum(r.f,1)+' г'],['Углеводы',fmtNum(r.c,1)+' г'],['На один приём (3 приёма)',fmtNum(r.p/3,1)+' / '+fmtNum(r.f/3,1)+' / '+fmtNum(r.c/3,1)+' г']];
  }},
 {id:'water',cat:'health',emoji:'💧',title:'Норма воды',kw:'литры жидкость пить активность',
  inputs:[
@@ -643,7 +672,9 @@ const CALCS=[
  calc:v=>{
   const r=waterLiters(num(v.w),v.a==='1');
   if(!r) return null;
-  return [['Воды в день',fmtNum(r.liters,2)+' л',1],['Стаканов по 0.3 л',fmtNum(r.liters/0.3,1)]];
+  const rows=[['Воды в день',fmtNum(r.liters,2)+' л',1],['Стаканов по 0.3 л',fmtNum(r.liters/0.3,1)]];
+  if(v.a!=='1') rows.push(['С тренировками (+500 мл)',fmtNum(r.liters+0.5,2)+' л']);
+  return rows;
  }},
 {id:'oner',cat:'health',emoji:'🏋️',title:'Рабочий 1ПМ (Эйпли)',kw:'один повтор максимум силовой тренажёр',
  inputs:[
@@ -654,7 +685,11 @@ const CALCS=[
  calc:v=>{
   const r=oneRm(num(v.w),num(v.r));
   if(!r) return null;
-  return [['Примерный 1ПМ',fmtNum(r.v,1)+' кг',1]];
+  const rows=[['Примерный 1ПМ',fmtNum(r.v,1)+' кг',1]];
+  rows.push(['10 повторов ≈ 70% 1ПМ',fmtNum(r.v*0.7,1)+' кг']);
+  rows.push(['6 повторов ≈ 80% 1ПМ',fmtNum(r.v*0.8,1)+' кг']);
+  rows.push(['3 повтора ≈ 90% 1ПМ',fmtNum(r.v*0.9,1)+' кг']);
+  return rows;
  }}
 ,{id:'tip',cat:'food',emoji:'🍽️',title:'Чаевые и делёж',kw:'чаевые ресторан счёт пополам делим',
  inputs:[
@@ -666,7 +701,11 @@ const CALCS=[
   const r=tipSplit(num(v.b),num(v.p)==null?10:num(v.p),Math.round(num(v.n)||1));
   if(!r) return null;
   const rows=[['Итого с чаевыми',fmtR(r.total),1],['Чаевые',fmtR(r.tip)]];
-  if(r.per<r.total) rows.push(['С каждого человека',fmtR(r.per)]);
+  if(r.per<r.total){
+    rows.push(['С каждого человека',fmtR(r.per)]);
+    const nn=Math.round(num(v.n)||1), rnd=Math.ceil(r.per/50)*50;
+    if(rnd>r.per) rows.push(['Ровно, округлив до 50 ₽','по '+fmtR(rnd)+' — итого '+fmtR(rnd*nn)]);
+  }
   return rows;
  }},
 {id:'fuel',cat:'travel',emoji:'⛽',title:'Топливо на поездку',kw:'бензин дизель расход литры маршрут',
@@ -679,7 +718,11 @@ const CALCS=[
   const r=fuelCost(num(v.km),num(v.l),num(v.p)==null?0:num(v.p));
   if(!r) return null;
   const rows=[['Нужно топлива',fmtNum(r.liters,1)+' л',1]];
-  if(r.cost!=null) rows.push(['Стоимость',fmtR(r.cost)]);
+  if(r.cost!=null){
+    rows.push(['Стоимость',fmtR(r.cost)]);
+    rows.push(['Туда и обратно (×2)',fmtR(r.cost*2)]);
+  }
+  rows.push(['CO₂ в атмосферу ≈',fmtNum(r.liters*2.31,1)+' кг']);
   return rows;
  }},
 {id:'metcal',cat:'health',emoji:'🏃',title:'Калории за активность',kw:'мет меты сожечь ходьба бег тренировка',
@@ -692,9 +735,12 @@ const CALCS=[
  calc:v=>{
   const r=metCalories(num(v.w),num(v.m),num(v.h));
   if(!r) return null;
-  return [['Сожжено',fmtNum(r.kcal,0)+' ккал',1]];
+  const perHour=r.kcal/((num(v.h)||0)>0?num(v.h):1);
+  const rows=[['Сожжено',fmtNum(r.kcal,0)+' ккал',1]];
+  if(perHour>0) rows.push(['Чтобы сжечь 1 кг жира (7 700 ккал)',fmtNum(7700/perHour,1)+' ч такой активности']);
+  return rows;
  }},
-{id:'due',unavailable:true,cat:'health',emoji:'🤰',title:'Роды: предполагаемая дата',kw:'беременность срок гестация последний день',
+{id:'due',cat:'health',emoji:'🤰',title:'Роды: предполагаемая дата',kw:'беременность срок гестация последний день',
  inputs:[
   {k:'l',l:'Первый день последней менструации',type:'date',def:todayStr()},
   {k:'c',l:'Длина цикла, дней (опционально, по умолчанию 28)',ph:'28',def:''}
@@ -715,7 +761,7 @@ const CALCS=[
   return rows;
  }},
 
-{id:'tv',unavailable:true,cat:'home',emoji:'📺',title:'Диагональ ТВ: дюймы ↔ см',kw:'телевизор диагональ размер дюйм',
+{id:'tv',cat:'home',emoji:'📺',title:'Диагональ ТВ: дюймы ↔ см',kw:'телевизор диагональ размер дюйм',
  inputs:[
   {k:'i',l:'Дюймы (заполните одно из двух)',ph:'55',def:55},
   {k:'c',l:'…или сантиметры',ph:'',def:''}
@@ -732,14 +778,18 @@ const CALCS=[
 {id:'unitprice',cat:'money',emoji:'🛒',title:'Цена за 100 г / кг',kw:'весовое сравнить магазин сырок упаковка',
  inputs:[
   {k:'p',l:'Цена упаковки, ₽',ph:'189',def:189},
-  {k:'g',l:'Вес, г',ph:'250',def:250}
+  {k:'g',l:'Вес, г',ph:'250',def:250},
+  {k:'kg',l:'Сколько купить, кг (опционально)',ph:'1',def:''}
  ],
  calc:v=>{
   const r=unitPrice(num(v.p),num(v.g));
   if(!r) return null;
-  return [['За 100 г',fmtR(r.per100),1],['За 1 кг',fmtR(r.per1000)]];
+  const rows=[['За 100 г',fmtR(r.per100),1],['За 1 кг',fmtR(r.per1000)]];
+  const kg=num(v.kg);
+  if(kg>0) rows.push(['Стоимость '+fmtNum(kg,2)+' кг',fmtR(r.per1000*kg)]);
+  return rows;
  }},
-{id:'watts',unavailable:true,cat:'home',emoji:'🔌',title:'Ватты ↔ амперы, автомат',kw:'розетка автомат пробки ток нагрузка',
+{id:'watts',cat:'home',emoji:'🔌',title:'Ватты ↔ амперы, автомат',kw:'розетка автомат пробки ток нагрузка',
  inputs:[
   {k:'w',l:'Мощность прибора, Вт',ph:'2000',def:2000},
   {k:'v',l:'Напряжение, В (по умолчанию 220)',ph:'220',def:220},
@@ -867,6 +917,18 @@ function buildRecipe(){
       const k=document.createElement('span'); k.className='res-k'; k.textContent=(it.name||'—')+' · '+fmtNum(it.amount,it.amount%1?1:0)+' '+(it.unit||'');
       const v=document.createElement('span'); v.className='res-v'; v.textContent=fmtNum(it.scaled,it.scaled%1?1:0)+' '+(it.unit||'');
       d.appendChild(k); d.appendChild(v); res.appendChild(d);
+    }
+    const toP=num(i2.value);
+    if(toP>0){
+      const ps=document.createElement('div'); ps.className='calc-hint';
+      ps.textContent='На одну порцию (всего '+toP+'):';
+      res.appendChild(ps);
+      for(const it2 of r.items){
+        const d2=document.createElement('div'); d2.className='res-row';
+        const k2=document.createElement('span'); k2.className='res-k'; k2.textContent=(it2.name||'—');
+        const v2=document.createElement('span'); v2.className='res-v'; v2.textContent=fmtNum(it2.scaled/toP,(it2.scaled/toP)%1?1:0)+' '+(it2.unit||'');
+        d2.appendChild(k2); d2.appendChild(v2); res.appendChild(d2);
+      }
     }
   };
   card.appendChild(form); card.appendChild(btn); card.appendChild(res);
