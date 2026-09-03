@@ -69,7 +69,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 <div class="wrap">
   <div class="head-row">
     <div>
-      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.2 • 32 в одном файле</span></h1>
+      <h1>🧮 Калькуляторы на все случаи жизни <span class="badge">v1.3 • 40 в одном файле</span></h1>
       <p class="sub">Деньги, дом, еда, математика, здоровье и поездки — все расчёты выполняются прямо в браузере. Ничего никуда не отправляется.</p>
     </div>
     <button class="btn theme-btn" id="themeBtn" title="Тема (сохраняется в браузере)">☀️ Светлая</button>
@@ -83,7 +83,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:26px}
 
   <div class="calcs" id="calcs"></div>
 
-  <footer>Калькуляторы на все случаи жизни v1.2 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
+  <footer>Калькуляторы на все случаи жизни v1.3 • одностраничное локальное приложение • без серверов и зависимостей. Формулы: аннуитет, Миффлин–Сан Жеора, ВОЗ (ИМТ), Эйпли (1RM), Нагеле и т.д. Введённые значения запоминаются. Результат — ориентир, не гарантия.</footer>
 </div>
 
 <script id="core">
@@ -317,6 +317,86 @@ function wattsAmps(watts,volts,cosPhi){
   for(const b of breaks) if(a<=b){ breaker=b; break; }
   return {amps:a,watts:watts,volts:v,cosPhi:cp,breaker:breaker,cable:breaker?CABLE_CU[breaker]:null};
 }
+/* ================= v1.3: ядро новых калькуляторов ================= */
+/* Копилка: сколько откладывать в месяц, чтобы накопить цель */
+function savingsMonthly(goal,ratePct,months,start){
+  const g=goal>0?goal:0, s=start>0?start:0;
+  const m=months>0?Math.round(months):0;
+  if(!m||g<=s) return null;
+  const i=ratePct>0?ratePct/100/12:0;
+  if(i===0){ const pmt=(g-s)/m; return {pmt:pmt,paid:pmt*m,interest:0}; }
+  const fvS=s*Math.pow(1+i,m);
+  const pmt=(g-fvS)*i/(Math.pow(1+i,m)-1);
+  const paid=pmt*m;
+  return {pmt:pmt,paid:paid,interest:g-s-paid};
+}
+/* Правило 72: рост капитала и срок удвоения */
+function rule72Calc(ratePct,years){
+  const r=ratePct>0?ratePct:0, y=years>0?years:0;
+  if(!r) return null;
+  return {
+    growth:Math.pow(1+r/100,y),
+    d72:72/r,
+    dexact:Math.log(2)/Math.log(1+r/100)
+  };
+}
+/* Обои: рулоны по периметру и высоте (полосная логика) */
+function wallpaper(perimeter,wallH,rollW,rollL,patternCm,skipStrips){
+  const P=perimeter>0?perimeter:0, h=wallH>0?wallH:0;
+  const rw=rollW>0?rollW:0.53, rl=rollL>0?rollL:10;
+  if(!P||!h) return null;
+  const step=h+(patternCm>0?patternCm/100:0);
+  const stripsTotal=Math.max(0,Math.ceil(P/rw)-(skipStrips>0?Math.round(skipStrips):0));
+  const stripsPer=rl>=step?Math.max(1,Math.floor(rl/step)):1;
+  const rolls=Math.max(0,Math.ceil(stripsTotal/stripsPer));
+  return {stripsTotal:stripsTotal,stripsPer:stripsPer,rolls:rolls,area:rolls*rl*rw};
+}
+/* Разбавление уксусной эссенции / спирта водой: C1*V1 = C2*V2 */
+function diluteCalc(c1,c2,v1,vt){
+  const a=c1>0&&c1<=100?c1:0, b=c2>0&&c2<=100?c2:0;
+  if(!a||!b||b>a) return null;
+  const hasV1=v1!=null&&v1>0, hasVt=vt!=null&&vt>0;
+  if(!hasV1&&!hasVt) return null;
+  let src,water,total;
+  if(hasV1){ src=v1; total=v1*a/b; water=total-src; }
+  else { total=vt; src=vt*b/a; water=total-src; }
+  return {src:src,water:water,total:total};
+}
+/* Конвертер единиц */
+const UNITS={
+  length:{'мм':0.001,'см':0.01,'м':1,'км':1000,'дюйм':0.0254,'фут':0.3048,'ярд':0.9144,'миля':1609.344},
+  mass:{'мг':0.001,'г':1,'кг':1000,'т':1000000,'унция':28.349523125,'фунт':453.59237},
+  volume:{'мл':0.001,'л':1,'м³':1000,'галлон (США)':3.785411784,'кварта (США)':0.946352946,'пинта (США)':0.473176473,'чашка (240 мл)':0.24}
+};
+function unitConvert(kind,from,to,value){
+  const u=UNITS[kind];
+  if(!u||u[from]==null||u[to]==null) return null;
+  const v=Number(value);
+  if(!isFinite(v)) return null;
+  return v*u[from]/u[to];
+}
+/* Температура: C <-> F */
+function tempConv(c,f){
+  if(c!=null&&isFinite(c)) return {c:c,f:c*9/5+32};
+  if(f!=null&&isFinite(f)) return {c:(f-32)*5/9,f:f};
+  return null;
+}
+/* Темп бега */
+function paceCalc(kmh,pmin,psec){
+  const useTempo=pmin!=null&&pmin>=0;
+  const s=useTempo?(pmin+(psec>0?psec:0)/60):(kmh>0?60/kmh:null);
+  if(!(s>0)) return null;
+  let paceM=Math.floor(s), paceS=Math.round((s-paceM)*60);
+  if(paceS>=60){ paceM+=1; paceS-=60; }
+  return {spd:60/s,paceM:paceM,paceS:paceS,paceMin:s};
+}
+/* Пульсовые зоны от максимального пульса */
+function hrZones(age,maxHR){
+  const mx=(maxHR>0)?maxHR:((age>0)?(220-age):220);
+  const defs=[[50,60,'Восстановление'],[60,70,'Базовая, жиросжигание'],[70,80,'Аэробная, темп'],[80,90,'Пороговая'],[90,100,'Максимальная']];
+  return {max:mx,zones:defs.map(function(d){return {pct:d[0]+'–'+d[1]+' %',name:d[2],lo:Math.round(mx*d[0]/100),hi:Math.round(mx*d[1]/100)};})};
+}
+/* ------------------------------------------------------------------ */
 /* ---------- форматирование ---------- */
 function fmtNum(n,maxFrac){
   if(maxFrac==null) maxFrac=2;
@@ -803,9 +883,112 @@ const CALCS=[
   if(r.breaker) rows.push(['Ближайший автомат',r.breaker+' А']);
   if(r.cable) rows.push(['Кабель (медь, скрытая прокладка)',r.cable]);
   return rows;
+ }},
+{id:'savings',cat:'money',emoji:'🐷',title:'Копилка: накопить цель',kw:'откладывать копить накопления цель вклад каждый месяц',
+ inputs:[
+  {k:'goal',l:'Цель, ₽',ph:'500 000',def:500000},
+  {k:'s',l:'Уже отложено, ₽',ph:'100 000',def:100000},
+  {k:'r',l:'Ставка по накоплениям, % годовых',ph:'18',def:18},
+  {k:'m',l:'Срок, месяцев',ph:'24',def:24}
+ ],
+ hint:'Обратная задача к депозиту: сколько откладывать в месяц, чтобы через M месяцев выйти на цель (с учётом процентов и уже накопленного).',
+ calc:v=>{
+  const r=savingsMonthly(num(v.goal),num(v.r),Math.round(num(v.m)||0),num(v.s)||0);
+  if(!r) return null;
+  if(r.pmt<=0) return [['Откладывать в месяц',fmtR(0)+' ₽',1],['Уже накоплено достаточно — цель достижима','✓']];
+  return [['Откладывать в месяц',fmtR(r.pmt),1],['Всего внесёте сами',fmtR(r.paid)],['Прирост за счёт процентов',fmtR(r.interest)]];
+ }},
+{id:'rule72',cat:'money',emoji:'📈',title:'Правило 72: рост и удвоение',kw:'срок удвоения сложный процент во сколько раз вырастет инвестиции доходность',
+ inputs:[
+  {k:'r',l:'Доходность, % годовых',ph:'12',def:12},
+  {k:'y',l:'Горизонт, лет',ph:'10',def:10}
+ ],
+ hint:'72 ÷ ставка ≈ годы, за которые капитал удвоится (надёжно для ставок до ~15 %). Точный срок — логарифмический, рядом для сравнения.',
+ calc:v=>{
+  const r=rule72Calc(num(v.r)||0,num(v.y)||0);
+  if(!r) return null;
+  const rows=[['Капитал вырастет в … раз',fmtNum(r.growth,1)+'×',1]];
+  rows.push(['Срок удвоения (правило 72)',fmtNum(r.d72,1)+' лет']);
+  rows.push(['Срок удвоения (точно)',fmtNum(r.dexact,1)+' лет']);
+  return rows;
+ }},
+{id:'wallpaper',cat:'home',emoji:'🧱',title:'Обои: сколько рулонов',kw:'поклейка ремонт рулон комната стены периметр',
+ inputs:[
+  {k:'per',l:'Периметр комнаты (сумма длин стен), м',ph:'14',def:14},
+  {k:'h',l:'Высота потолка, м',ph:'2.5',def:2.5},
+  {k:'rw',l:'Ширина рулона, м',ph:'0.53',def:0.53},
+  {k:'rl',l:'Длина рулона, м',ph:'10',def:10},
+  {k:'pat',l:'Подгонка рисунка (раппорт), см',ph:'0',def:''},
+  {k:'skip',l:'Полос, закрытых проёмами (дверь ≈ 1, окно ≈ 1–2)',ph:'2',def:''}
+ ],
+ hint:'Полосы считаются по периметру: из рулона выходит столько полос, сколько раз в его длине умещается высота стены плюс раппорт.',
+ calc:v=>{
+  const r=wallpaper(num(v.per),num(v.h),num(v.rw),num(v.rl),num(v.pat),num(v.skip));
+  if(!r) return null;
+  return [['Нужно рулонов',r.rolls+' шт',1],['Всего полос по периметру',r.stripsTotal+' шт'],['Полос из одного рулона',r.stripsPer+' шт'],['Купленная площадь (с запасом)',fmtNum(r.area,1)+' м²']];
+ }},
+{id:'dilute',cat:'food',emoji:'🍶',title:'Разбавление: уксус и спирт',kw:'уксусная эссенция развести спирт самогон вода концентрация 70 в 9',
+ inputs:[
+  {k:'c1',l:'Концентрация исходная, %',ph:'70',def:70},
+  {k:'c2',l:'Нужная концентрация, %',ph:'9',def:9},
+  {k:'v1',l:'Объём исходного, мл',ph:'100',def:''},
+  {k:'vt',l:'Сколько нужно готового раствора, мл',ph:'1000',def:''}
+ ],
+ hint:'Заполните объём исходного ИЛИ нужный объём готового. Пример: 100 мл 70%-й эссенции → 9%-й уксус — добавить 100×(70/9−1) ≈ 678 мл воды. Разбавляя, крепче не сделать.',
+ calc:v=>{
+  const r=diluteCalc(num(v.c1),num(v.c2),num(v.v1),num(v.vt));
+  if(!r) return null;
+  const rows=[];
+  if(num(v.v1)==null&&r.src!=null) rows.push(['Взять исходного',fmtNum(r.src,1)+' мл']);
+  rows.push(['Добавить воды',fmtNum(r.water,1)+' мл',1]);
+  rows.push(['Итоговый объём',fmtNum(r.total,1)+' мл']);
+  return rows;
+ }},
+{id:'temp',cat:'home',emoji:'🌡️',title:'Температура: °C ↔ °F',kw:'духовка цельсий фаренгейт градусы рецепт выпечка',
+ inputs:[
+  {k:'c',l:'Градусы Цельсия, °C',ph:'180',def:180},
+  {k:'f',l:'Градусы Фаренгейта, °F',ph:'350',def:''}
+ ],
+ hint:'Заполните °C или °F. Духовка (примерно): 160 °C = 320 °F, 180 °C = 350 °F, 200 °C = 400 °F. Газовая: 1 ≈ 140 °C, каждое деление ≈ +25 °C.',
+ calc:v=>{
+  const r=tempConv(num(v.c),num(v.f));
+  if(!r) return null;
+  return [['По Цельсию',fmtNum(r.c,0)+' °C',1],['По Фаренгейту',fmtNum(r.f,0)+' °F']];
+ }},
+{id:'units',cat:'math',emoji:'🔄',title:'Конвертер единиц',kw:'перевод длина масса объём см м кг грамм литры дюймы футы мили галлон',custom:'units'},
+{id:'pace',cat:'health',emoji:'🏃',title:'Темп бега: мин/км ↔ км/ч',kw:'бег марафон скорость время дистанция тренировка',
+ inputs:[
+  {k:'spd',l:'Скорость, км/ч',ph:'10',def:''},
+  {k:'pmin',l:'Темп: минут на км',ph:'6',def:''},
+  {k:'psec',l:'Темп: секунд на км',ph:'0',def:''},
+  {k:'dist',l:'Своя дистанция, км (для времени)',ph:'21.1',def:''}
+ ],
+ hint:'Заполните скорость ИЛИ темп (темп приоритетнее). Темп 6:00 мин/км ≈ 10 км/ч. Внизу — время на стандартные дистанции.',
+ calc:v=>{
+  const r=paceCalc(num(v.spd),num(v.pmin),num(v.psec));
+  if(!r) return null;
+  const rows=[['Темп',r.paceM+':'+String(r.paceS).padStart(2,'0')+' мин/км',1],['Скорость',fmtNum(r.spd,1)+' км/ч']];
+  const d=num(v.dist);
+  if(d>0) rows.push(['Время на '+fmtNum(d,2)+' км',fmtDur(r.paceMin*d)]);
+  rows.push(['Время на 5 км',fmtDur(r.paceMin*5)]);
+  rows.push(['Время на 10 км',fmtDur(r.paceMin*10)]);
+  rows.push(['Время на 21,1 км',fmtDur(r.paceMin*21.0975)]);
+  rows.push(['Время на 42,2 км',fmtDur(r.paceMin*42.195)]);
+  return rows;
+ }},
+{id:'hrzones',cat:'health',emoji:'💓',title:'Пульсовые зоны',kw:'сердце пульс тренировка зоны чсс кардио бег возраст интенсивность',
+ inputs:[
+  {k:'age',l:'Возраст, лет',ph:'30',def:30},
+  {k:'mx',l:'Максимальный пульс, уд/мин',ph:'190',def:''}
+ ],
+ hint:'Пусто в поле пульса = 220 − возраст. Зоны считаются как % от максимального пульса. Z1–Z2 — восстановление и база, Z4–Z5 — короткие интенсивные интервалы.',
+ calc:v=>{
+  const r=hrZones(num(v.age)||0,num(v.mx));
+  const rows=[['Максимальный пульс',r.max+' уд/мин',1]];
+  for(const z of r.zones) rows.push([z.pct+' — '+z.name,z.lo+'–'+z.hi+' уд/мин']);
+  return rows;
  }}
 ];
-
 
 /* ---------- генерация карточек ---------- */
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -937,6 +1120,69 @@ function buildRecipe(){
   return card;
 }
 
+function fmtDur(min){
+  if(min==null||!isFinite(min)) return '—';
+  const m=Math.round(min);
+  if(m<60) return m+' мин';
+  const h=Math.floor(m/60), mm=m%60;
+  return h+' ч'+(mm?' '+mm+' мин':'');
+}
+
+function buildUnits(c){
+  const card=document.createElement('div'); card.className='calc-card';
+  const h=document.createElement('h3'); h.textContent=c.emoji+' '+c.title; card.appendChild(h);
+  const form=document.createElement('div');
+  const kindNames={length:'Длина',mass:'Масса',volume:'Объём'};
+  function selRow(label,sel){ const row=document.createElement('div'); row.className='ci';
+    const lb=document.createElement('label'); lb.textContent=label;
+    row.appendChild(lb); row.appendChild(sel); form.appendChild(row); return sel; }
+  const kind=selRow('Величина',document.createElement('select'));
+  for(const k of Object.keys(kindNames)){ const o=document.createElement('option'); o.value=k; o.textContent=kindNames[k]; kind.appendChild(o); }
+  const val=document.createElement('input'); val.inputMode='decimal'; val.placeholder='1';
+  const vrow=document.createElement('div'); vrow.className='ci';
+  const vlb=document.createElement('label'); vlb.textContent='Значение';
+  vrow.appendChild(vlb); vrow.appendChild(val); form.appendChild(vrow);
+  const from=document.createElement('select'), to=document.createElement('select');
+  selRow('Из единицы',from); selRow('В единицу',to);
+  function fillUnits(){
+    from.innerHTML=''; to.innerHTML='';
+    const names=Object.keys(UNITS[kind.value]);
+    for(const n of names){
+      const a=document.createElement('option'); a.value=n; a.textContent=n; from.appendChild(a);
+      const b=document.createElement('option'); b.value=n; b.textContent=n; to.appendChild(b);
+    }
+    const prefs={length:['м','см'],mass:['кг','г'],volume:['л','мл']}[kind.value]||['м','см'];
+    if(prefs[0]&&from.querySelector('option[value="'+prefs[0]+'"]')) from.value=prefs[0];
+    if(prefs[1]&&to.querySelector('option[value="'+prefs[1]+'"]')) to.value=prefs[1];
+  }
+  kind.onchange=fillUnits; fillUnits();
+  const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='Рассчитать';
+  const res=document.createElement('div'); res.className='calc-res';
+  const saved=mem[c.id];
+  if(saved){
+    if(saved.kind&&kindNames[saved.kind]){ kind.value=saved.kind; fillUnits(); }
+    if(saved.from&&from.querySelector('option[value="'+saved.from+'"]')) from.value=saved.from;
+    if(saved.to&&to.querySelector('option[value="'+saved.to+'"]')) to.value=saved.to;
+    if(saved.val!=null) val.value=saved.val;
+  }
+  btn.onclick=()=>{
+    const r=unitConvert(kind.value,from.value,to.value,num(val.value));
+    res.innerHTML='';
+    if(r==null){ const d=document.createElement('div'); d.className='res-err'; d.textContent='Введите число.'; res.appendChild(d); return; }
+    mem[c.id]={kind:kind.value,from:from.value,to:to.value,val:val.value}; saveMem();
+    const d=document.createElement('div'); d.className='res-row big';
+    const k=document.createElement('span'); k.className='res-k'; k.textContent=fmtNum(num(val.value),6)+' '+from.value+' =';
+    const vv=document.createElement('span'); vv.className='res-v'; vv.textContent=fmtNum(r,6)+' '+to.value;
+    d.appendChild(k); d.appendChild(vv); res.appendChild(d);
+    const hh=document.createElement('div'); hh.className='calc-hint';
+    hh.textContent='Например: 1 м = 100 см, 1 кг = 1000 г, 1 л = 1000 мл.';
+    res.appendChild(hh);
+  };
+  card.appendChild(form); card.appendChild(btn); card.appendChild(res);
+  if(c.hint){ const hh=document.createElement('div'); hh.className='calc-hint'; hh.textContent=c.hint; card.appendChild(hh); }
+  return card;
+}
+
 /* ---------- фильтр ---------- */
 let curCat='all', curQ='';
 function applyFilter(){
@@ -968,7 +1214,10 @@ $('q').addEventListener('input',e=>{ curQ=e.target.value; applyFilter(); });
 
 const grid=$('calcs');
 for(const c of CALCS){
-  const card=c.custom?buildRecipe():buildGeneric(c);
+  let card;
+  if(c.custom==='units') card=buildUnits(c);
+  else if(c.custom) card=buildRecipe(c);
+  else card=buildGeneric(c);
   card.id='calc-'+c.id;
   grid.appendChild(card);
 }
